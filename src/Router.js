@@ -31,6 +31,10 @@ const propTypes = {
   onExitApp: PropTypes.func,
 };
 
+// 全局router，用于android返回
+const globalRouters = {};
+const routerIDs = [];
+
 class Router extends Component {
   static childContextTypes = {
     routes: PropTypes.object,
@@ -39,6 +43,9 @@ class Router extends Component {
   constructor(props) {
     super(props);
     this.Actions = new Actions();
+
+    globalRouters[props.routerID] = this.Actions;
+
     this.renderNavigation = this.renderNavigation.bind(this);
     this.handleProps = this.handleProps.bind(this);
     this.handleBackAndroid = this.handleBackAndroid.bind(this);
@@ -79,12 +86,15 @@ class Router extends Component {
       onExitApp,
     } = this.props;
     // optional for customizing handler
+
     if (backAndroidHandler) {
       return backAndroidHandler();
     }
 
     try {
-      this.Actions.pop();
+      const id = routerIDs[routerIDs.length - 1];
+      const currentActions = globalRouters[id] || this.Actions;
+      currentActions.pop();
       if (onBackAndroid) {
         onBackAndroid();
       }
@@ -134,7 +144,6 @@ class Router extends Component {
         initialState,
         scenes: scenesMap,
       }));
-
     return routerReducer;
   }
 
@@ -145,6 +154,27 @@ class Router extends Component {
     this.Actions.get = key => findElement(navigationState, key, ActionConst.REFRESH);
     this.Actions.callback = props => {
       const constAction = (props.type && ActionMap[props.type] ? ActionMap[props.type] : null);
+
+      switch (constAction) {
+        case ActionConst.PUSH:
+          routerIDs.push(navigationState.routerID);
+          break;
+        case ActionConst.BACK:
+        case ActionConst.BACK_ACTION:
+          routerIDs.pop();
+          break;
+        case ActionConst.POP_AND_REPLACE:
+        case ActionConst.POP_TO:
+        case ActionConst.REFRESH:
+        case ActionConst.PUSH_OR_POP:
+        case ActionConst.JUMP:
+        case ActionConst.REPLACE:
+        case ActionConst.RESET:
+          break;
+        default:
+          break;
+      }
+
       if (this.props.dispatch) {
         if (constAction) {
           this.props.dispatch({ ...props, type: constAction });
